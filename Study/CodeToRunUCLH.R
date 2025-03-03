@@ -7,8 +7,10 @@ renv::restore()
 library(CDMConnector)
 library(DBI)
 library(log4r)
+library(readr)
 library(DrugUtilisation)
 library(IncidencePrevalence)
+library(OmopSketch)
 library(dplyr)
 library(here)
 library(tidyr)
@@ -19,6 +21,8 @@ library(PatientProfiles)
 library(DrugExposureDiagnostics)
 library(omopgenerics)
 library(stringr)
+library(RPostgres)
+library(odbc)
 
 ## START OF SETTINGS copied between benchmarking, characterisation & antibiotics study
 
@@ -95,18 +99,27 @@ min_cell_count <- 5
 # study_start <- "2012-01-01"
 study_start <- "2024-01-01"
 
+# Minimum cell count -----
+# This is the minimum counts that can be displayed according to data governance.
+min_cell_count <- 5
+
 # Run the study ------
-# For now please leave only run_cdm_snapshot and run_drug_exposure_diagnostics as TRUE, and keep 
-# run_main_study as FALSE. 
-run_cdm_snapshot <- TRUE
+# if run_watch_list is TRUE, we run analyses both at ingredient and concept level
+# if run_watch_list is FALSE, we only run analyses at concept level
+run_watch_list <- TRUE 
+
+# analyses to run -----
+# setting to FALSE will skip analysis
 run_drug_exposure_diagnostics <- TRUE
-run_main_study <- FALSE
+run_drug_utilisation <- TRUE
+run_characterisation <- TRUE
+run_incidence <- TRUE
 
-#andy (because Oxford changed from characterisation & I'm trying to keep consistent)
-db_name <- dbName
-
-# Run the study
+# Run the study -----
 source(here("RunStudy.R"))
 
-# after the study is run you should have a zip folder in your output folder to share
-cli::cli_alert_success("Study finished")
+# Study Results to share ---
+# After the study is run you should have the following files to share in your results folder:
+# 1) drug exposure diagnosis (DED) zip file
+# 2) log file of study
+# 3) results.csv containing the main results of the study
