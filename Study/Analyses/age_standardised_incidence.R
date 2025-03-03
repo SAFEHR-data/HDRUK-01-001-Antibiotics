@@ -164,7 +164,7 @@ if (run_incidence == TRUE) {
       cdm_name = db_name
     ) %>%
     as_tibble() %>%
-    mutate(age_standard = "European Standard Population") 
+    mutate(age_standard = "European Standard Population")
 
 
   agestandardizedinc_final_espf <- bind_rows(agestandardizedincf) %>%
@@ -176,7 +176,7 @@ if (run_incidence == TRUE) {
       cdm_name = db_name
     ) %>%
     as_tibble() %>%
-    mutate(age_standard = "European Standard Population") 
+    mutate(age_standard = "European Standard Population")
 
   agestandardizedinc_final_espm <- bind_rows(agestandardizedincm) %>%
     mutate(cdm_name = db_name) %>%
@@ -187,7 +187,7 @@ if (run_incidence == TRUE) {
       cdm_name = db_name
     ) %>%
     as_tibble() %>%
-    mutate(age_standard = "European Standard Population") 
+    mutate(age_standard = "European Standard Population")
 
   agestandardizedinc_final_esp <- bind_rows(
     agestandardizedinc_final_esp,
@@ -310,7 +310,7 @@ if (run_incidence == TRUE) {
       cdm_name = db_name
     ) %>%
     as_tibble() %>%
-    mutate(age_standard = "World Standard Population") 
+    mutate(age_standard = "World Standard Population")
 
   agestandardizedinc_wsp_finalf <- bind_rows(agestandardizedinc_wspf) %>%
     mutate(
@@ -320,7 +320,7 @@ if (run_incidence == TRUE) {
       cdm_name = db_name
     ) %>%
     as_tibble() %>%
-    mutate(age_standard = "World Standard Population") 
+    mutate(age_standard = "World Standard Population")
 
   agestandardizedinc_wsp_finalm <- bind_rows(agestandardizedinc_wspm) %>%
     mutate(
@@ -330,8 +330,8 @@ if (run_incidence == TRUE) {
       cdm_name = db_name
     ) %>%
     as_tibble() %>%
-    mutate(age_standard = "World Standard Population") 
-  
+    mutate(age_standard = "World Standard Population")
+
   agestandardizedinc_wsp_final <- bind_rows(
     agestandardizedinc_wsp_final,
     agestandardizedinc_wsp_finalf,
@@ -340,37 +340,84 @@ if (run_incidence == TRUE) {
 
   cli::cli_alert_success("- Age standardization for incidence using world standard population completed")
 
-  inc_crude <- inc_tidy %>% 
-    filter(denominator_age_group == "0 to 150",
-           incidence_start_date != "overall" ,
-           analysis_interval == "years") %>% 
-    mutate(age_standard = "Crude") %>% 
-    select(c(
-      incidence_start_date,            
-      outcome_count,                       
-      person_years,                
-      incidence_100000_pys,
-      incidence_100000_pys_95CI_lower,
-      incidence_100000_pys_95CI_upper,
-      outcome_cohort_name,            
-      cdm_name,                  
-      denominator_sex,                   
-      denominator_age_group,
-      age_standard))
-  
-  
   agestandardized_results <- bind_rows(
-    inc_crude,
     agestandardizedinc_final_esp,
     agestandardizedinc_wsp_final
-  )
+  ) |>
+    rename(
+      outcome_count = n,
+      denominator_count = d,
+      incidence_crude = c_rate,
+      incidence_crude_95CI_lower = c_lower,
+      incidence_crude_95CI_upper = c_upper,
+      incidence_standardised = s_rate,
+      incidence_standardised_95CI_lower = s_lower,
+      incidence_standardised_95CI_upper = s_upper
+    ) |>
+    mutate(outcome_count = as.double(outcome_count)) |>
+    mutate(across(
+      c(
+        "outcome_count", "denominator_count", "incidence_crude", "incidence_crude_95CI_lower",
+        "incidence_crude_95CI_upper", "incidence_standardised",
+        "incidence_standardised_95CI_lower", "incidence_standardised_95CI_upper"
+      ),
+      \(x) if_else(outcome_count < min_cell_count & min_cell_count > 0, "-", as.character(x))
+    )) |>
+    pivot_longer(
+      cols = c(
+        "denominator_count", "outcome_count",
+        "incidence_crude", "incidence_crude_95CI_lower",
+        "incidence_crude_95CI_upper", "incidence_standardised",
+        "incidence_standardised_95CI_lower", "incidence_standardised_95CI_upper"
+      ),
+      names_to = "estimate_name",
+      values_to = "estimate_value"
+    ) |>
+    omopgenerics::uniteGroup(c("denominator_cohort_name", "outcome_cohort_name")) |>
+    omopgenerics::uniteStrata() |>
+    omopgenerics::uniteAdditional(c("incidence_start_date", "age_standard")) |>
+    dplyr::mutate(
+      result_id = 1L,
+      estimate_type = "numeric",
+      variable_name = ifelse(grepl("^(outcome|incidence)", estimate_name),
+        "Outcome", "Denominator"
+      ),
+      variable_level = NA_character_
+    ) |>
+    select(
+      result_id, cdm_name, group_name, group_level,
+      strata_name, strata_level, variable_name, variable_level,
+      estimate_name, estimate_type, estimate_value,
+      additional_name, additional_level
+    ) |>
+    omopgenerics::newSummarisedResult(
+      settings = omopgenerics::settings(inc) |>
+        dplyr::select(
+          "analysis_complete_database_intervals", "analysis_outcome_washout",
+          "analysis_repeated_events", "denominator_time_at_risk"
+        ) |>
+        dplyr::distinct() |>
+        dplyr::mutate(
+          result_id = 1L,
+          result_type = "incidence_summary",
+          package_name = NA_character_,
+          package_version = NA_character_,
+        )
+    )
 
   cli::cli_alert_success("- Age standardization for incidence completed")
 
   # Export the results -----
 
-  cli::cli_alert_info("- Getting age standardized incidence results")
-  write.csv(agestandardized_results, here::here("Results", "Standardised Incidence", paste0("incidence_estimates_age_std_", db_name, ".csv")), row.names = FALSE)
+  results[["age_std_incidence"]] <- agestandardized_results
+
+  write.csv(agestandardized_results,
+    here::here(
+      "Results",
+      paste0("incidence_estimates_age_std_", db_name, ".csv")
+    ),
+    row.names = FALSE
+  )
 
   cli::cli_alert_success("Incidence Analysis Complete")
 }

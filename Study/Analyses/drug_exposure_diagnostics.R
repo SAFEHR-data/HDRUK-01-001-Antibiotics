@@ -1,25 +1,22 @@
 if (run_drug_exposure_diagnostics == TRUE) {
-  
-  top_ingredients <- read.csv(here("Results", db_name, paste0("top_ten_ingredients_", db_name, ".csv")))[,-1] %>%
-    select(-cohort_definition_id)
-  
-  if(isTRUE(run_watch_list)) {
-  top_watch_list <- read.csv(here("Results", db_name, paste0("top_ten_watch_list_", db_name, ".csv")))[,-1] %>%
-    select(-cohort_definition_id)
-  
-  ded_names <- rbind(top_ingredients, top_watch_list) %>%
-    select(ingredient_name,concept_id) %>%
-    distinct()
-  } else {
-    ded_names <- top_ingredients %>%
-      select(ingredient_name,concept_id) %>%
-      distinct()
-  }
+  ded_ingredients <- all_routes_counts %>%
+    select(cohort_name) %>%
+    separate(cohort_name, into = c("prefix", "concept_code", "concept_name"), 
+             sep = "_") |> 
+    select("concept_code", "concept_name") |> 
+    dplyr::distinct()
+
+  ded_codes <- cdm$concept %>%
+    filter(domain_id == "Drug",
+           concept_class_id == "Ingredient",
+           standard_concept == "S",
+           concept_code %in% ded_ingredients$concept_code) %>%
+    pull("concept_id")
+
   cli::cli_alert_info("- Running drug exposure diagnostics")
-  
   drug_diagnostics <- executeChecks(
     cdm = cdm,
-    ingredients = ded_names$concept_id,
+    ingredients = ded_codes,
     checks = c(
       "missing",
       "exposureDuration",
@@ -30,10 +27,10 @@ if (run_drug_exposure_diagnostics == TRUE) {
       "type"
     ),
     earliestStartDate = study_start,
-    outputFolder = resultsFolder,
-    filename = paste0("DED_Results_", db_name),
+    outputFolder = results_folder,
+    filename = paste0("DED_Results_", cdmName(cdm)),
     minCellCount = min_cell_count
   )
-  
+
   cli::cli_alert_success("- Finished drug exposure diagnostics")
 }

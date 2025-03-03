@@ -1,83 +1,79 @@
 cli::cli_text("- GETTING TOP TEN INGREDIENTS ({Sys.time()})")
 
-ingredients <- read.csv(here("Cohorts", "ingredients.csv")) %>%
-  select(-X)
-
-# Get a table of ingredient names and concept id.
-# ingredient name changed to all lower case for consistency
-ingredient_codes <- ingredients %>%
-  select(ingredient_name, concept_id) %>%
-  mutate(ingredient_name = tolower(ingredient_name)) %>%
-  distinct()
-  
-# Create codelist with just ingredient codes.
-ing_list <- setNames(as.list(ingredient_codes$concept_id), ingredient_codes$ingredient_name)
-
-ing_av <- tibble(
-  name = availableIngredients(cdm)) %>%
-  mutate(ingredient_name = tolower(name))
-
-# Only include antibiotic ingredients that are present in the cdm.
-ing_av <- merge(ingredient_codes, ing_av, by = "ingredient_name")
-
-cli::cli_alert(paste0("Ingredient level code for ",nrow(ing_av), " ingredients found"))
-
-# Create a codelist for the antibiotics that are a combiantion of one or more ingredients.    
-ingredient_desc <- getDrugIngredientCodes(
-  cdm = cdm,
-  name = ing_av$name,
-  type = "codelist",
-  nameStyle = "{concept_name}"
+ingredients <- read_csv(here("Cohorts", "ingredients.csv"),
+  col_types = list(
+    concept_id = col_double(),
+    ingredient_name = col_character(),
+    cohort_name = col_character(),
+    atc = col_character()
+  )
 )
 
-cli::cli_alert(paste0("Descendent codes found for ",length(ingredient_desc), " ingredients"))
+ing_av <- cdm$concept %>%
+  filter(
+    domain_id == "Drug",
+    concept_class_id == "Ingredient",
+    standard_concept == "S",
+    concept_id %in% ingredients$concept_id
+  ) %>%
+  pull("concept_id")
 
-# Merge ingredient and descendent codelists, ensuring that concept ids are not repeated.
-ing_all <- list()
-for(i in ing_av$ingredient_name){
-    ing_all[[i]] <- c(ingredient_desc[[i]],ing_list[[i]])
-    ing_all[[i]] <- unique(ing_all[[i]])
-}
+cli::cli_alert(
+  paste0("Ingredient level code for ", length(ing_av), " ingredients found"))
+
+# Create a codelist for the antibiotics that are a combination of ingredients.
+ingredient_desc <- getDrugIngredientCodes(
+  cdm = cdm,
+  name = ing_av,
+  type = "codelist",
+  nameStyle = "{concept_code}_{concept_name}"
+)
+
+cli::cli_alert(
+  paste0("Descendent codes found for ", length(ingredient_desc), " ingredients"))
+
+names(ingredient_desc) <- paste0(
+  "ing_",
+  omopgenerics::toSnakeCase(names(ingredient_desc))
+)
 
 # If there aren't any codelists in ing_all then the next steps are skipped.
-if(length(ing_all) > 0){
+if (length(ingredient_desc) > 0) {
   # Creates cohort for all antibiotics
-  cdm$all_concepts <- conceptCohort(cdm = cdm, conceptSet = ing_all, name = "all_concepts") %>%
+  cdm$ing_all <- conceptCohort(
+    cdm = cdm,
+    conceptSet = ingredient_desc,
+    name = "ing_all"
+  ) %>%
     requireInDateRange(
       indexDate = "cohort_start_date",
-      dateRange = c(as.Date(study_start), as.Date(maxObsEnd)) 
+      dateRange = study_period
     )
-  
-  # Gets top ten antibiotics using record counts.
-  all_concepts_counts <- merge(cohortCount(cdm$all_concepts), settings(cdm$all_concepts), by = "cohort_definition_id") %>%
+
+  # Gets top ten antibiotics using record counts
+  all_routes_counts <- cohortCount(cdm$ing_all) |>
     filter(number_records > 0) %>%
     arrange(desc(number_records)) %>%
-    slice_head(n = 10) %>%
-    rename(ingredient_name = cohort_name)
-  
-  top_ten_ingredients <- ing_all[names(ing_all) %in% all_concepts_counts$ingredient_name]
-  
-  if(nrow(all_concepts_counts) > 0){
-    suppressed_table <- merge(all_concepts_counts, ingredient_codes, by = "ingredient_name") %>%
-      mutate(number_records = ifelse(number_records < min_cell_count, paste("< ", min_cell_count), number_records)) %>%
-      mutate(number_subjects = ifelse(number_subjects < min_cell_count,  paste("< ", min_cell_count), number_subjects)) %>%
-      mutate(type = "ingredient_level")
-    
-    write.csv(suppressed_table, here(resultsFolder, paste0("top_ten_ingredients_", db_name, ".csv")))
-  }
-} else if(length(ing_all) == 0){
+    slice_head(n = 10) |>
+    left_join(settings(cdm$ing_all),
+      by = "cohort_definition_id"
+    )
+
+  top_ten_ingredients <- ingredient_desc[names(ingredient_desc) %in%
+    all_routes_counts$cohort_name]
+
+  sum_ingredients <- summariseCohortCount(cohort = cdm$ing_all) %>%
+    filter(group_level %in% all_routes_counts$cohort_name)
+  results[["sum_ingredients"]] <- sum_ingredients
+} else if (length(ing_all) == 0) {
   cli::cli_abort("No ingredients or descendents found!")
-  
 }
 
 # If there are no descendant codes (i.e. antibiotics only mapped to ingredient),
- # then go straight to DED.
-if(length(ingredient_desc) == 0 ){
-  cli::cli_alert("No descendent codes found. DED performed at ingredient level only.")
+# then go straight to DED.
+if (length(ingredient_desc) == 0) {
+  cli::cli_alert("No descendent codes found. Ingredient level only.")
   run_watch_list <- FALSE
 } else {
   run_watch_list <- TRUE
 }
-
-
-  
