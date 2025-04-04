@@ -40,9 +40,12 @@ library(odbc)
 # cdmSchema <- "data_catalogue_003" #6 months
 # put brief progress here
 
-dbName <- "UCLH-2years"
-cdmSchema <- "data_catalogue_004" #2 years
+# dbName <- "UCLH-2years"
+# cdmSchema <- "data_catalogue_004" #2 years
 # put brief progress here
+
+dbName <- "UCLH-from-2019-really"
+cdmSchema <- "data_catalogue_006" 
 
 # create a DBI connection to UCLH database
 # using credentials in .Renviron or you can replace with hardcoded values here
@@ -74,6 +77,7 @@ prefix <- "uclh_hdruk_benchmark"
 cdm <- CDMConnector::cdmFromCon(
   con = con,
   cdmSchema = cdmSchema,
+  cdmVersion = "5.3",
   writeSchema =  writeSchema,
   writePrefix = prefix,
   cdmName = dbName,
@@ -88,6 +92,12 @@ cdm$drug_exposure <- cdm$drug_exposure |> dplyr::filter(drug_exposure_start_date
 # Minimum cell count
 # This is the minimum counts that can be displayed according to data governance.
 min_cell_count <- 5
+#list tables
+DBI::dbListObjects(con, DBI::Id(schema = cdmSchema))
+DBI::dbListObjects(con, DBI::Id(schema = writeSchema))
+
+#to drop all the tables with write_prefix
+#cdm <- CDMConnector::dropSourceTable(cdm = cdm, name = dplyr::everything())
 
 ## END OF SETTINGS copied between benchmarking, characterisation & antibiotics study
 
@@ -97,7 +107,9 @@ min_cell_count <- 5
 # If you do not have data from 2012 onwards please put the earliest date possible for your data.
 # For example if you only have usable data from 2015 you would put 2015-01-01.
 # study_start <- "2012-01-01"
-study_start <- "2024-01-01"
+# warning("starting study in 2024")
+study_start <- "2019-01-01"
+
 
 # Minimum cell count -----
 # This is the minimum counts that can be displayed according to data governance.
