@@ -113,6 +113,22 @@ cdm$drug_exposure <- cdm$drug_exposure |>
   mutate(drug_concept_id = if_else(drug_concept_id==0, omop_rxnorm, drug_concept_id)) |> 
   select(-omop_rxnorm)
 
+# 1747 patients to remove 
+persremove <- cdm$observation_period |> 
+  filter(observation_period_end_date < observation_period_start_date) |> 
+  pull(person_id)
+
+cdm$person              <- cdm$person |> filter(! person_id %in% persremove)
+cdm$observation_period  <- cdm$observation_period |> filter(! person_id %in% persremove)
+cdm$visit_occurrence    <- cdm$visit_occurrence |> filter(! person_id %in% persremove)
+cdm$drug_exposure        <- cdm$drug_exposure |> filter(! person_id %in% persremove)
+
+# cdm$condition_occurrence <- cdm$condition_occurrence |> filter(! person_id %in% persremove)
+# cdm$procedure_occurrence <- cdm$procedure_occurrence |> filter(! person_id %in% persremove)
+# cdm$device_exposure     <- cdm$device_exposure |> filter(! person_id %in% persremove)
+# cdm$observation         <- cdm$observation |> filter(! person_id %in% persremove)
+# cdm$measurement         <- cdm$measurement |> filter(! person_id %in% persremove)
+
 # Minimum cell count
 # This is the minimum counts that can be displayed according to data governance.
 min_cell_count <- 5
