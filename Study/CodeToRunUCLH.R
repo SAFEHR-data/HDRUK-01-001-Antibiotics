@@ -40,9 +40,14 @@ library(odbc)
 # cdmSchema <- "data_catalogue_003" #6 months
 # put brief progress here
 
-dbName <- "UCLH-2years"
-cdmSchema <- "data_catalogue_004" #2 years
+# dbName <- "UCLH-2years"
+# cdmSchema <- "data_catalogue_004" #2 years
 # put brief progress here
+# ran this locally & worked
+
+dbName <- "UCLH-from-2019"
+cdmSchema <- "data_catalogue_006" #from 2019
+# 2025-03-12 new extract
 
 # create a DBI connection to UCLH database
 # using credentials in .Renviron or you can replace with hardcoded values here
