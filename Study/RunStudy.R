@@ -10,12 +10,38 @@ logfile(logger) <- here(results_folder, logger_name)
 level(logger) <- "INFO"
 info(logger, "LOG CREATED")
 
+maxObsEnd <- cdm$observation_period |>
+  summarise(maxObsEnd = max(observation_period_end_date, na.rm = TRUE)) |>
+  dplyr::pull()
+
 # CDM manipulations -----
 # drop anyone missing sex or year of birth
+
+if(isTRUE(restrict_to_inpatient) & isFALSE(restrict_to_paediatric)){
+cdm <- OmopConstructor::generateObservationPeriod(
+  cdm,
+  collapseEra = 545,
+  persistenceWindow = 545,
+  censorDate = as.Date(maxObsEnd),
+  censorAge = 150L,
+  recordsFrom = c("visit_occurrence", "condition_occurrence", "drug_exposure")
+)
+} else if(isTRUE(restrict_to_inpatient) & isTRUE(restrict_to_paediatric)){
+  cdm <- OmopConstructor::generateObservationPeriod(
+    cdm,
+    collapseEra = 545,
+    persistenceWindow = 545,
+    censorDate = as.Date(maxObsEnd),
+    censorAge = 18L,
+    recordsFrom = c("visit_occurrence", "condition_occurrence", "drug_exposure")
+  )
+}
+
 cdm$person <- cdm$person |>
   filter(
     !is.na(gender_concept_id),
-    !is.na(year_of_birth)
+    !is.na(year_of_birth),
+    gender_concept_id %in% c(8507,8532)
   )
 
 # Shared study parameters  ----
@@ -33,16 +59,9 @@ results[["obs_period"]] <- summariseObservationPeriod(cdm$observation_period)
 info(logger, "OBSERVATION PERIOD SUMMARY COMPLETED")
 
 # Get top ten antibiotics: ingredient level -----
-info(logger, "GETTING TOP TEN INGREDIENTS")
-source(here("Cohorts", "TopTenIngredients.R"))
-info(logger, "GOT TOP TEN INGREDIENTS")
-
-# Get top ten antibiotics: watch list -----
-if (run_watch_list) {
-  info(logger, "GETTING TOP TEN WATCH LIST ANTIBIOTICS")
-  source(here("Cohorts", "TopTenWatchList.R"))
-  info(logger, "GOT TOP TEN WATCH LIST ANTIBIOTICS")
-}
+info(logger, "GETTING CODELISTS")
+source(here("Cohorts", "GenerateCodelists.R"))
+info(logger, "GOT CODELISTS")
 
 # Create cohorts -----
 info(logger, "INSTANTIATING STUDY COHORTS")
@@ -50,34 +69,26 @@ source(here("Cohorts", "InstantiateCohorts.R"))
 info(logger, "STUDY COHORTS INSTANTIATED")
 # cohorts created:
 # denominator for incidence analysis
-# top_ten_outcomes - to be used for incidence
-# top_ten - to be used for characteristation and drug utilisation
+# antibiotics from watch list with at least 100 users
 
-
-# Drug exposure diagnostics -----
-if (run_drug_exposure_diagnostics == TRUE) {
-  info(logger, "RUNNING DRUG EXPOSURE DIAGNOSTICS")
-  source(here("Analyses", "drug_exposure_diagnostics.R"))
-  info(logger, "GOT DRUG EXPOSURE DIAGNOSTICS")
+if(run_drug_exposure_diagnostics == TRUE){
+info(logger, "RUNNING DRUG EXPSURE DIAGNOSTICS")
+source(here("Cohorts", "InstantiateCohorts.R"))
+info(logger, "FINISHED DRUG EXPSURE DIAGNOSTICS")
 }
 
-# Study analyses ----
-source(here("Analyses", "functions.R"))
-if (run_drug_utilisation == TRUE) {
-  info(logger, "RUN DRUG UTILISATION")
-  source(here("Analyses", "drug_utilisation.R"))
-  info(logger, "DRUG UTILISATION FINISHED")
-}
 if (run_characterisation == TRUE) {
   info(logger, "RUN CHARACTERISTICS")
   source(here("Analyses", "characteristics.R"))
   info(logger, "CHARACTERISTICS FINISHED")
 }
+
 if (run_incidence == TRUE) {
   info(logger, "RUN INCIDENCE")
   source(here("Analyses", "incidence.R"))
   info(logger, "INCIDENCE FINISHED")
 }
+
 info(logger, "ANALYSES FINISHED")
 
 # Export results ----

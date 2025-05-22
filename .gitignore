@@ -34,3 +34,7 @@ Report/shiny/data/*csv
 Report/shiny/data/*RData
 Reporting/study_shiny/data/shinyData.RData
 Reporting/study_shiny/data/*.csv
+.DS_Store
+/Reporting/DED_shiny/data
+Reporting/DED_shiny/data/DED_Results_Eunomia.zip
+Reporting/DED_shiny/data/DED_Results_Eunomia.zip
