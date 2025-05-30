@@ -1,15 +1,19 @@
 if (run_incidence == TRUE) {
   cli::cli_alert_info("- Getting incidence")
   # Incidence
-  results[["incidence"]] <- estimateIncidence(
+  
+  incidence <- estimateIncidence(
     cdm = cdm,
     denominatorTable = "denominator",
-    outcomeTable = "top_ten_outcomes",
+    outcomeTable = "antibiotics",
     interval = c("quarters", "overall"),
     repeatedEvents = TRUE,
     outcomeWashout = 30,
     completeDatabaseIntervals = FALSE
   )
+  
+  results[["incidence"]] <- incidence %>%
+    filter(additional_name != "reason_id")
 
   cli::cli_alert_success("- Got crude incidence")
 }
