@@ -90,6 +90,7 @@ run_drug_exposure_diagnostics <- TRUE
 run_drug_utilisation <- TRUE
 run_characterisation <- TRUE
 run_incidence <- TRUE
+run_code_use <- FALSE
 
 # Run the study -----
 source(here("RunStudy.R"))
