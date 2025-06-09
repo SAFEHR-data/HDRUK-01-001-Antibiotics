@@ -100,6 +100,7 @@ ingredient_desc <- ingredient_desc[names(ingredient_desc) %in% antibiotics_count
 cdm$antibiotics <- cdm$antibiotics |>
   subsetCohorts(cohortId = antibiotics_count$cohort_definition_id)
 
+if(isTRUE(run_code_use)){
 for(i in seq_along(ingredient_desc)){
   working_cohort_id <- getCohortId(cohort = cdm$antibiotics, cohortName = names(ingredient_desc)[i])
   results[[paste0("code_use_", i)]] <- summariseCohortCodeUse(ingredient_desc[i], 
@@ -111,6 +112,14 @@ sum_antibiotics <- summariseCohortCount(cohort = cdm$antibiotics)
 
 results[["sum_antibiotics"]] <- sum_antibiotics
 }
+} else {
+  for(i in seq_along(ingredient_desc)){
+    
+    sum_antibiotics <- summariseCohortCount(cohort = cdm$antibiotics)
+    
+    results[["sum_antibiotics"]] <- sum_antibiotics
+  } 
+  }
 
 ##### Indications
 indications <- read_csv("Cohorts/indications_concepts.csv")[,-1]
@@ -123,12 +132,19 @@ indications_list <- setNames(indications_grouped$concept_id_vector, toSnakeCase(
 
 cdm$indications <- conceptCohort(cdm = cdm,
                                  conceptSet = indications_list,
-                                 name = "indications")
-
+                                 name = "indications") |>
+  requireTableIntersect(tableName = "antibiotics",
+                        indexDate = "cohort_start_date", 
+                        window = c(-Inf, Inf), 
+                        name = "indications")
 ##### Access Antibiotics
 
 cdm$access_antibiotics <- conceptCohort(cdm = cdm,
                                         conceptSet = acc_ingredient_desc,
-                                        name = "access_antibiotics")
+                                        name = "access_antibiotics") |>
+  requireTableIntersect(tableName = "antibiotics",
+                        indexDate = "cohort_start_date", 
+                        window = c(-Inf, Inf), 
+                        name = "access_antibiotics")
 
 cli::cli_alert_success("- Created cohort set")
