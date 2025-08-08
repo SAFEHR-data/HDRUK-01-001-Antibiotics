@@ -169,7 +169,7 @@ min_cell_count <- 5
 # Study start date -----
 # please put the earliest date possible for your data.
 # study_start <- "2012-01-01"
-study_start <- "2019-04-01"
+study_start <- "2022-01-01"
 
 # Minimum cell count -----
 # This is the minimum counts that can be displayed according to data governance.
