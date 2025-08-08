@@ -184,7 +184,7 @@ restrict_to_paediatric <- FALSE
 
 # analyses to run -----
 # setting to FALSE will skip analysis
-run_characterisation <- FALSE
+run_characterisation <- TRUE
 run_incidence <- TRUE
 run_code_use <- FALSE
 
