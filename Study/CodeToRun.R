@@ -80,7 +80,7 @@ min_cell_count <- 5
 
 ### Database settings
 # Hospital databases should set the restrict_to_inpatient flag to TRUE.
-restrict_to_inpatient <- FALSE
+restrict_to_inpatient <- TRUE
 
 # Databases that only include paediatric data should set the restrict_to_paediatric to TRUE. 
 restrict_to_paediatric <- FALSE
